@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Deploy a Remix Contract</title>
+
+    <link rel="stylesheet" type="text/css" href="main.css">
+
+    <script src="https://cdn.jsdelivr.net/gh/ethereum/web3.js/dist/web3.min.js"></script>
+</head>
+
+<body>
+    <div>
+        <h1>Ethereum Secret Messenger</h1>
+        <hr>
+
+        <label for="message">This site writes a secret message to the Ethereum
+            blockchain!</label>
+        <input id="userInput" type="text">
+
+        <button id="setMessageButton">Set secret message</button>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+
+    <script>
+
+if (typeof window.ethereum !== 'undefined') {
+  console.log('MetaMask is installed!');
+}
+        // Connect a the web3 provider
+        // Check if Web3 has been injected by the browser (Mist/MetaMask)
+    if (typeof web3 !== 'undefined') {
+        // Use existing gateway
+        window.web3 = new Web3(web3.currentProvider);
+    } else {
+        alert("No Ethereum interface injected into browser. Read-only access");
+    }
+
+    ethereum.enable()
+    .then(function (accounts) {
+        console.log(accounts)
+        web3.eth.defaultAccount = accounts[0];
+    })
+    .catch(function (error) {
+    // Handle error. Likely the user rejected the login
+    console.error(error)
+    })
+
+
+        // Get the contract address
+        var RemixContract = new web3.eth.Contract([
+	{
+		"inputs": [
+			{
+				"internalType": "string",
+				"name": "_msg",
+				"type": "string"
+			}
+		],
+		"name": "setMessage",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "getMessage",
+		"outputs": [
+			{
+				"internalType": "string",
+				"name": "",
+				"type": "string"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	}
+],'0xa2a1a0e1c312e8d7a058cc86bb05f2127fde0858');
+
+        // Get the contract abi
+        //var myMessage = RemixContract.at('');
+
+        //console.log(myMessage);
+
+        $("#setMessageButton").click(function () {
+            msg = $("#userInput").val()
+            RemixContract.methods.setMessage(msg).send({from: '0x09338d3c018ea5fd7d98c31cae613454d4c750a8'})
+                .then(function(receipt){
+                    // receipt can also be a new contract instance, when coming from a "contract.deploy({...}).send()"
+                });
+        });
+
+    </script>
+</body>
+
+</html>
