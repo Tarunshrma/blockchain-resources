@@ -6,16 +6,15 @@ contract MultiSigWallet {
   //Define Events
   event Deposit(address indexed sender, uint amount, uint currentBalance);
   event TransactionSubmitted(bytes32 indexed txnId);
-  event Approve(address indexed owner, uint indexed txnId);
-  event Revoke(address indexed owner, uint indexed txnId);
-  event Execute(uint indexed txnId);
+  event TrsanctionApproved(address indexed approver, bytes32 indexed txnId);
+  event TransactionReadyForExecution(bytes32 indexed txnId);
+  event TransactionExecuted(bytes32 indexed txnId);
 
   struct Transaction{
     bytes32 txnId;
     address to;
     uint value;
     bytes data;
-    bool executed;
     uint approvals; //Current approvals
   }
 
@@ -24,6 +23,7 @@ contract MultiSigWallet {
   address[] public approvers;
   mapping(address => bool) public isApprover;
   mapping (bytes32 => Transaction) pendingTransactions;
+  mapping (bytes32 => Transaction) readyTransaction;
   //This mapping will store if given transaction is approved by approver
   mapping (bytes32 => mapping (address => bool)) isTransactionApprovedBy;
   
@@ -34,6 +34,22 @@ contract MultiSigWallet {
   //Modifiers
   modifier onlyApprover(){
     require(isApprover[msg.sender], "Only approver can perform this operation");
+    _;
+  }
+
+  modifier transactionShouldExist(bytes32 _txnid){
+    require(pendingTransactions[_txnid].txnId == _txnid, "Transaction not exist.");
+    _;
+  }
+
+  
+  modifier transactionShouldExistInReadyState(bytes32 _txnid){
+    require(readyTransaction[_txnid].txnId == _txnid, "Transaction should be in ready state.");
+    _;
+  }
+
+  modifier notApprovedBy(bytes32 _txnid){
+    require(!isTransactionApprovedBy[_txnid][msg.sender], "Transaction already approved.");
     _;
   }
 
@@ -67,11 +83,43 @@ contract MultiSigWallet {
       to   : _toParty,
       value: _value,
       data: _data,
-      executed: false,
       approvals: 0 
     });
 
     emit TransactionSubmitted(_txnId);
+  }
+
+  //Only valid approver
+  //transaction should exist
+  //transaction not already approved by current approver
+  function approveTransaction(bytes32 _txnId) external onlyApprover 
+                                                       transactionShouldExist(_txnId)
+                                                       notApprovedBy(_txnId){
+      Transaction memory _txn = pendingTransactions[_txnId];
+      _txn.approvals++;
+      isTransactionApprovedBy[_txnId][msg.sender] = true;
+
+      emit TrsanctionApproved(msg.sender, _txnId);
+
+      if(_txn.approvals >= minApprovalReq){
+        //Tranasction is ready for execution as enough approval found.
+        readyTransaction[_txnId] = _txn;
+        delete pendingTransactions[_txnId]; 
+        emit TransactionReadyForExecution(_txnId);
+      }
+  }
+
+  function executeTrancation(bytes32 _txnId) external 
+                                              onlyApprover
+                                              transactionShouldExistInReadyState(_txnId)
+
+  {
+      Transaction memory _txn = readyTransaction[_txnId];
+      (bool success, ) = _txn.to.call{value: _txn.value}(_txn.data);
+
+      require(success, "Transaction failed.");
+      delete readyTransaction[_txnId];
+      emit TransactionExecuted(_txnId);
   }
 
 }
