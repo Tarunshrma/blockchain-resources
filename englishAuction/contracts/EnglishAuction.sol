@@ -7,12 +7,13 @@ contract EnglishAuction {
   
   event AuctionStarted();
   event BidPlaced(address indexed bidder, uint indexed amount);
+  event WithDrawnFromAuction(address indexed bidder, uint indexed amount);
   event AuctionEnded(address indexed auctionWinner, uint indexed highestBid);
 
   enum AuctionState {NotStarted, Started, Ended }
 
   //Original owner of NFT
-  address public originalOwner;
+  address payable public originalOwner;
   //Current highest bid
   uint public heighestBid;
   address public highestBidder;
@@ -30,7 +31,7 @@ contract EnglishAuction {
   }
 
   constructor(uint _initialBid, address _nftAddress, uint _nftId) public {
-    originalOwner = msg.sender;
+    originalOwner = payable(msg.sender);
     heighestBid = _initialBid;
 
     require(_nftAddress != address(0), "NFT address is invalid!");
@@ -58,6 +59,42 @@ contract EnglishAuction {
     highestBidder = msg.sender;
 
     emit BidPlaced(msg.sender, msg.value);
+  }
+
+  //Can not withdraw from an active auction
+  function withdrawFromAuction() external{
+    require(auctionState == AuctionState.Ended, "Can not withdraw from an active auction.");
+    require(bidders[msg.sender] > 0, "You have not bid yet.");
+
+    uint balance = bidders[msg.sender];
+    bidders[msg.sender] = 0;
+    payable(msg.sender).transfer(balance);
+
+    emit WithDrawnFromAuction(msg.sender, balance);
+  }
+
+  //Finish the auction by transferring the NFT to highest bidder.
+  //mark the Bid as stopped, check time should have been elapsed for Auction window
+  //Anyone who has bid can call endAuction.
+  function endAuction() external{
+    require(auctionState == AuctionState.Started, "Auction is not active.");
+    require(block.timestamp >= auctionEndDate, "Auction is still active and can not be ended before it expires.");
+    require(bidders[msg.sender] > 0, "You are not authorozed to end the Auction.");
+    
+    //no-one bid to auction :-( ). return the nft to owner.
+    if(highestBidder == address(0)){
+      nftUnderAuction.safeTransferFrom(address(this), originalOwner, nftId, "");
+    }else{
+      //Set the highest bidder balance to 0
+      auctionState = AuctionState.Ended;
+      bidders[highestBidder] = 0;
+      originalOwner.transfer(heighestBid);
+      nftUnderAuction.safeTransferFrom(address(this), highestBidder, nftId, "");
+    }
+
+    emit AuctionEnded(highestBidder, heighestBid);
+
+
   }
 
 }
