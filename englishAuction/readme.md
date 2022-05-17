@@ -1,7 +1,7 @@
 # English Auction
 ## English auction for NFT.
 
-[![N|Solid](https://cldup.com/dTxpPi9lDf.thumb.png)](https://solidity-by-example.org/app/english-auction)
+[![N|Solid]SmartContractProgrammer(https://solidity-by-example.org/app/english-auction)
 
 ## Auction
 - Seller of NFT deploys this contract.
